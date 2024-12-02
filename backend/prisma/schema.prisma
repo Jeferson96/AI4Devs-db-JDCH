@@ -16,42 +16,135 @@ datasource db {
 
 model Candidate {
   id                Int               @id @default(autoincrement())
-  firstName         String            @db.VarChar(100)
-  lastName          String            @db.VarChar(100)
+  firstName         String            @map("first_name") @db.VarChar(100)
+  lastName          String            @map("last_name") @db.VarChar(100)
   email             String            @unique @db.VarChar(255)
   phone             String?           @db.VarChar(15)
   address           String?           @db.VarChar(100)
+  status            String            @default("active")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
   educations        Education[]
   workExperiences   WorkExperience[]
   resumes           Resume[]
+  applications    Application[]
+  jobOffers       JobOffer[]
+
+  // Índice para búsquedas por email (aunque ya existe implícitamente por @unique)
+  @@index([email])
+  @@map("candidates")
 }
 
 model Education {
-  id            Int       @id @default(autoincrement())
-  institution   String    @db.VarChar(100)
-  title         String    @db.VarChar(250)
-  startDate     DateTime
-  endDate       DateTime?
-  candidateId   Int
-  candidate     Candidate @relation(fields: [candidateId], references: [id])
+  id              Int       @id @default(autoincrement())
+  institution     String    @db.VarChar(100)
+  title           String    @db.VarChar(250)
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime? @map("end_date")
+  educationLevel  String?   @map("education_level") @db.VarChar(50)
+  candidateId     Int       @map("candidate_id")
+  candidate       Candidate @relation(fields: [candidateId], references: [id])
+
+  @@map("educations")
 }
 
 model WorkExperience {
-  id          Int       @id @default(autoincrement())
-  company     String    @db.VarChar(100)
-  position    String    @db.VarChar(100)
-  description String?   @db.VarChar(200)
-  startDate   DateTime
-  endDate     DateTime?
-  candidateId Int
-  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  id              Int       @id @default(autoincrement())
+  company         String    @db.VarChar(100)
+  position        String    @db.VarChar(100)
+  description     String?   @db.VarChar(200)
+  achievements    String?   @db.VarChar(500)
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime? @map("end_date")
+  candidateId     Int       @map("candidate_id")
+  candidate       Candidate @relation(fields: [candidateId], references: [id])
+
+  @@map("work_experiences")
 }
 
 model Resume {
-  id          Int       @id @default(autoincrement())
-  filePath    String    @db.VarChar(500)
-  fileType    String    @db.VarChar(50)
-  uploadDate  DateTime
-  candidateId Int
-  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  id              Int       @id @default(autoincrement())
+  filePath        String    @map("file_path") @db.VarChar(500)
+  fileType        String    @map("file_type") @db.VarChar(50)
+  uploadDate      DateTime  @map("upload_date")
+  candidateId     Int       @map("candidate_id")
+  candidate       Candidate @relation(fields: [candidateId], references: [id])
+
+  @@map("resumes")
+}
+
+model Position {
+  id                Int           @id @default(autoincrement())
+  title             String        @db.VarChar(100)
+  location          String        @db.VarChar(100)
+  salaryMin         Float?        @map("salary_min")
+  salaryMax         Float?        @map("salary_max")
+  status            String        @default("open")
+  applicationCount  Int           @default(0) @map("application_count")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  applications      Application[]
+  jobOffers         JobOffer[]
+
+  @@index([status, location])
+  @@map("positions")
+}
+
+model Application {
+  id              Int         @id @default(autoincrement())
+  positionId      Int         @map("position_id")
+  candidateId     Int         @map("candidate_id")
+  status          String      @default("pending")
+  appliedAt       DateTime    @default(now()) @map("applied_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  candidate       Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  position        Position    @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  interviews      Interview[]
+
+  @@index([status, positionId])
+  @@map("applications")
+}
+
+model Employee {
+  id              Int         @id @default(autoincrement())
+  firstName       String      @map("first_name") @db.VarChar(100)
+  lastName        String      @map("last_name") @db.VarChar(100)
+  email           String      @unique @db.VarChar(255)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  interviews      Interview[]
+
+  @@map("employees")
+}
+
+model Interview {
+  id              Int         @id @default(autoincrement())
+  applicationId   Int         @map("application_id")
+  scheduledAt     DateTime    @map("scheduled_at")
+  result          String?     @db.VarChar(100)
+  notes           String?     @db.VarChar(500)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  conductedBy     Employee?   @relation(fields: [conductedById], references: [id])
+  conductedById   Int?        @map("conducted_by_id")
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledAt])
+  @@map("interviews")
+}
+
+model JobOffer {
+  id              Int       @id @default(autoincrement())
+  candidateId     Int       @map("candidate_id")
+  positionId      Int       @map("position_id")
+  offeredAt       DateTime  @default(now()) @map("offered_at")
+  status          String    @default("pending")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  position        Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@index([status, offeredAt])
+  @@map("job_offers")
 }
